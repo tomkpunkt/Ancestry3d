@@ -56,7 +56,11 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
 .scroll{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin;scrollbar-color:#24365a transparent}
 .sec h2{font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
 .search{position:relative}
-.search input{width:100%;box-sizing:border-box;padding:8px 10px 8px 32px;border-radius:7px;border:1px solid var(--line);background:#070d1b}
+.srow{display:flex;gap:6px;align-items:center}
+.srow .search{flex:1;min-width:0}
+.srow .btn.icon{width:40px;height:40px;flex:none;box-sizing:border-box}
+#hits:empty{display:none}
+.search input{width:100%;height:40px;box-sizing:border-box;padding:8px 10px 8px 32px;border-radius:7px;border:1px solid var(--line);background:#070d1b}
 .search input:focus{border-color:var(--cyan);outline:none}
 .search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6}
 #hits{display:flex;flex-direction:column;margin-top:6px;max-height:220px;overflow:auto}
@@ -87,9 +91,13 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
 .hbtns{margin-left:auto;display:flex;gap:6px;flex:none}
 #right.mini{bottom:auto}
 #right.mini .scroll > :not(.head){display:none}
-#right.mini .head{border-bottom:0;padding-block:10px}
+#right.mini .head{border-bottom:0;padding-block:10px;align-items:center}
+#right.mini .head > div:nth-child(2){min-width:0}
+#right.mini .head h3, #right.mini .head .sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+#right.mini .head .sub br{display:none}
+#right.mini .head .hbtns .btn{width:40px;height:40px;box-sizing:border-box}
 #right.mini .scroll{padding-bottom:0}
-#right.mini .avatar{width:40px;height:40px;font-size:15px;border-radius:8px}
+#right.mini .avatar{width:40px;height:40px;box-sizing:border-box;font-size:15px;border-radius:8px}
 #right.mini .head h3{font-size:16px}
 .kv{display:grid;grid-template-columns:96px 1fr;gap:6px 10px;font-size:13px}
 .kv dt{color:var(--mute)}
@@ -141,19 +149,27 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
 #loader .box{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding-inline:16px}
 #loader .t{font-family:var(--f-display);letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
 #loader p{color:var(--mute);max-width:42ch;line-height:1.5;margin:0}
-.toggleL{display:none}
+.toggleL{display:inline-flex}
+#left.mini{bottom:auto}
+#left.mini .scroll{padding:10px}
+#left.mini .scroll > .sec:not(:first-child){display:none}
+.files{display:flex;flex-direction:column;gap:4px}
+.files .btn{justify-content:flex-start;width:100%;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis}
+.files .btn.on{border-color:var(--cyan);color:var(--cyan)}
 
 @media (max-width:1500px){ .h-drop{display:none} }
 @media (max-width:1100px){ #right{width:290px} #left{width:230px} }
 @media (max-width:860px){
-  .toggleL{display:inline-flex}
-  #left{display:none;top:8px;left:8px;bottom:auto;max-height:70%;width:min(300px,calc(100% - 16px))}
-  #left.open{display:flex}
+  #left{top:8px;left:8px;bottom:auto;max-height:calc(100% - 16px);width:min(300px,calc(100% - 16px))}
   #right{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:46%}
   #right.idle{display:none}
   #right.mini{bottom:8px}
   #hint{display:none}
   header{gap:10px;padding:8px 12px}
+  header{flex-wrap:nowrap}
+  .spacer, .brand svg, .brand p{display:none}
+  .brand{flex:1;min-width:0}
+  .brand h1{font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hide-s{display:none}
 }
 @media (prefers-reduced-motion:reduce){ .card,.card .in{transition:none} }
@@ -161,6 +177,7 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
 
 <div id="app">
   <header>
+    <button class="btn toggleL" id="menuBtn" aria-controls="left" aria-expanded="false"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12"/></svg><span data-i18n="menu">Menü</span></button>
     <div class="brand">
       <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
         <circle cx="15" cy="5" r="3" fill="#ffbf5e"/><circle cx="7" cy="15" r="2.6" fill="#5fd4ff"/><circle cx="23" cy="15" r="2.6" fill="#5fd4ff"/><circle cx="15" cy="25" r="3" fill="#dce6f7"/>
@@ -168,7 +185,6 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
       </svg>
       <div><h1 id="brandTitle">Ancestry3d</h1><p id="meta" data-i18n="loading">lädt …</p></div>
     </div>
-    <button class="btn toggleL" id="menuBtn" aria-controls="left" data-i18n="menu">Menü</button>
     <div class="spacer"></div>
     <div class="hgroup hide-s"><span class="lab" data-i18n="view">Ansicht</span>
       <button class="btn icon" id="homeBtn" data-i18n-title="overview" title="Gesamtansicht" aria-label="Gesamtansicht">
@@ -179,7 +195,7 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
       <button class="btn icon" id="zout" data-i18n-title="zoomOut" aria-label="Weiter weg">−</button>
     </div>
     <button class="btn" id="langBtn" title="Sprache / Language">EN</button>
-    <label class="btn" for="file" data-i18n-title="openTip" title="Eigene GED-Datei öffnen oder in den Raum ziehen"><span data-i18n="open">GED-Datei öffnen</span><input type="file" id="file" hidden></label>
+    <label class="btn hide-s" for="file" data-i18n-title="openTip" title="Eigene GED-Datei öffnen oder in den Raum ziehen"><span data-i18n="open">GED-Datei öffnen</span><input type="file" id="file" hidden></label>
   </header>
 
   <div id="stage">
@@ -189,11 +205,18 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
     <aside class="panel" id="left">
       <div class="scroll">
         <div class="sec">
-          <div class="search">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
-            <input id="q" type="search" data-i18n-ph="search" placeholder="Person suchen" autocomplete="off" aria-label="Person suchen">
+          <div class="srow">
+            <div class="search">
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
+              <input id="q" type="search" data-i18n-ph="search" placeholder="Person suchen" autocomplete="off" aria-label="Person suchen">
+            </div>
+            <button class="btn icon" id="leftMini" aria-controls="left">▾</button>
           </div>
           <div id="hits"></div>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="data">Daten</h2>
+          <div class="files"><div id="fileList" class="files"></div><label class="btn" for="file" data-i18n="open">GED-Datei öffnen</label></div>
         </div>
         <div class="sec">
           <h2 data-i18n="visible">Sichtbar</h2>
@@ -265,7 +288,7 @@ let ROOT_ID = null;              // Hauptperson der geladenen Datei (CFG.home od
 /* ================= Sprachen ================= */
 const I18N = {
   de: {
-    loading:'lädt …', menu:'Menü', view:'Ansicht', overview:'Gesamtansicht', spin:'Langsam drehen', zoomIn:'Näher', zoomOut:'Weiter weg',
+    loading:'lädt …', menu:'Menü', data:'Daten', view:'Ansicht', overview:'Gesamtansicht', spin:'Langsam drehen', zoomIn:'Näher', zoomOut:'Weiter weg',
     open:'GED-Datei öffnen', openTip:'Eigene GED-Datei öffnen oder in den Raum ziehen', search:'Person suchen', visible:'Sichtbar', all:'Alle', line:'Strang',
     branches:'Familienzweige', display:'Darstellung', tNames:'Namenskarten', tYears:'Lebensjahre', tEdges:'Verbindungen', tAxis:'Zeitachse & Ebenen', tGlow:'Leuchten',
     legend:'Legende', ancestors:'Vorfahren', descendants:'Nachfahren', spouses:'Ehepartner', estLegend:'Geburtsjahr geschätzt',
@@ -292,7 +315,7 @@ const I18N = {
     dq:{ABT:'ca. ',EST:'geschätzt ',CAL:'errechnet ',BEF:'vor ',AFT:'nach ',FROM:'ab ',TO:'bis '}, between:'zw. {a} und {b}', dayFmt:'{d}. {m} {y}', locale:'de-DE'
   },
   en: {
-    loading:'loading …', menu:'Menu', view:'View', overview:'Overview', spin:'Rotate slowly', zoomIn:'Closer', zoomOut:'Further away',
+    loading:'loading …', menu:'Menu', data:'Data', view:'View', overview:'Overview', spin:'Rotate slowly', zoomIn:'Closer', zoomOut:'Further away',
     open:'Open GED file', openTip:'Open your own GED file or drop it into the space', search:'Search person', visible:'Visible', all:'All', line:'Line',
     branches:'Family branches', display:'Display', tNames:'Name cards', tYears:'Life years', tEdges:'Connections', tAxis:'Time axis & rings', tGlow:'Glow',
     legend:'Legend', ancestors:'Ancestors', descendants:'Descendants', spouses:'Spouses', estLegend:'Birth year estimated',
@@ -840,7 +863,7 @@ function renderHits(){
   if (!q){ $('#hits').innerHTML=''; return; }
   const list = [...P.values()].filter(p => (p.name+' '+p.sur+' '+Math.floor(p.year)).toLowerCase().includes(q)).sort((a,b)=>a.year-b.year).slice(0,40);
   $('#hits').innerHTML = list.map(p=>`<button class="row${p.id===sel?' on':''}" data-id="${esc(p.id)}"><span class="dot" style="color:${hex(p)};background:${hex(p)}"></span><span class="nm">${esc(p.name)}</span><span class="ct">${p.est?'≈':''}${Math.floor(p.year)}</span></button>`).join('') || `<p class="empty">${t('noHit')}</p>`;
-  $('#hits').querySelectorAll('.row').forEach(r => r.onclick = () => select(r.dataset.id));
+  $('#hits').querySelectorAll('.row').forEach(r => r.onclick = () => { select(r.dataset.id); if (narrow()) setMenu(false); });
 }
 function setMode(m){
   mode = m;
@@ -923,7 +946,17 @@ $('#homeBtn').onclick = home;
 $('#spinBtn').onclick = () => { controls.autoRotate = !controls.autoRotate; $('#spinBtn').classList.toggle('on', controls.autoRotate); };
 const zoom = k => { const v = camera.position.clone().sub(controls.target).multiplyScalar(k); camera.position.copy(controls.target).add(v); };
 $('#zin').onclick = () => zoom(.75); $('#zout').onclick = () => zoom(1.33);
-$('#menuBtn').onclick = () => $('#left').classList.toggle('open');
+/* Menü: Schublade links, Zustand wird gemerkt. Eingebettet startet sie geschlossen. */
+const leftEl = $('#left');
+function setMenu(open){
+  leftEl.classList.toggle('mini', !open);
+  $('#menuBtn').setAttribute('aria-expanded', open); $('#menuBtn').classList.toggle('on', open);
+  const b = $('#leftMini'); b.textContent = open ? '▾' : '▴'; b.title = t(open ? 'collapseT' : 'expandT'); b.setAttribute('aria-label', b.title); b.setAttribute('aria-expanded', open);
+}
+setMenu(store.get('a3d.menu') ? store.get('a3d.menu')==='1' : (!window.GED_EMBED && innerWidth >= 1100));
+const toggleMenu = () => { const o = leftEl.classList.contains('mini'); setMenu(o); store.set('a3d.menu', o ? '1' : '0'); };
+$('#menuBtn').onclick = toggleMenu; $('#leftMini').onclick = toggleMenu;
+const narrow = () => innerWidth < 860;
 $('#file').addEventListener('change', async e => { const f=e.target.files[0]; if (f) start(decodeGed(await f.arrayBuffer()), f.name); e.target.value=''; });
 stage.addEventListener('dragover', e => e.preventDefault());
 stage.addEventListener('drop', async e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if (f) start(decodeGed(await f.arrayBuffer()), f.name); });
@@ -1084,7 +1117,7 @@ async function start(text, name){
   $('#loadMsg').textContent = t('arranging', {n:P.size, name});
   await new Promise(r => setTimeout(r, 40));
   layout(); buildScene(); resize();
-  loadedName = name; renderMeta();
+  loadedName = name; renderMeta(); renderFiles();
   $('#loader').hidden = true;
   const want = startWish || store.get('a3d.sel'); startWish = null;
   select(P.has(want) ? want : (P.has(ROOT_ID) ? ROOT_ID : null), false);
@@ -1106,6 +1139,7 @@ function renderMeta(){
 }
 function setLang(l){
   LANG = l; store.set('a3d.lang', l); applyStatic();
+  setMenu(!leftEl.classList.contains('mini'));
   if (!P.size) return;
   for (const n of nodes) n.el.querySelector('.yr').textContent = years(n.p);
   buildBranches.relabel?.(); renderMeta(); applyState(); renderDetail();
@@ -1114,9 +1148,16 @@ function setLang(l){
   axisPivot?.children.forEach(o => { if (o.isCSS2DObject && o.element.classList.contains('cap')) o.element.textContent = o.userData.top ? t('older') : t('younger'); });
 }
 $('#langBtn').onclick = () => setLang(LANG === 'de' ? 'en' : 'de');
+function renderFiles(){
+  const list = CFG.files || [];
+  $('#fileList').innerHTML = list.map((f, i) => `<button class="btn${f.name===loadedName?' on':''}" data-i="${i}" title="${esc(f.name)}">${esc(f.name)}</button>`).join('');
+  $('#fileList').querySelectorAll('.btn').forEach(b => b.onclick = () => { const f = list[+b.dataset.i]; start(f.text, f.name); if (narrow()) setMenu(false); });
+}
 applyStatic();
 (async () => {
+  renderFiles();
   if (CFG.text){ start(CFG.text, CFG.name || 'GED'); return; }
+  if (CFG.files?.length){ start(CFG.files[0].text, CFG.files[0].name); return; }
   if (!CFG.src){ $('#loadMsg').textContent = t('noFile'); return; }
   $('#loadMsg').textContent = t('reading', {name: CFG.src});
   try {

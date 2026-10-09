@@ -4,7 +4,7 @@ A GEDCOM family tree as a 3D time cylinder. Every person sits at the height of t
 
 Ein GEDCOM-Stammbaum als 3D-Zeitzylinder. Jede Person steht auf der Höhe ihres Geburtsjahres (ein Jahr = eine Einheit, Ältere oben). Ein Klick hebt den Strang hervor: Vorfahren gold, Nachfahren cyan, Ehepartner rosa. Die Ansicht lässt sich als PNG in etwa 4K exportieren.
 
-The interface is available in **English and German** (switch in the sidebar and in the viewer header).
+The interface is available in **English and German** (switch in the viewer header).
 
 ## Run locally
 
@@ -22,14 +22,14 @@ streamlit run app.py
 
 | File | Purpose |
 | --- | --- |
-| `app.py` | Streamlit UI: upload a GED file or pick one from `data/`, key figures, person picker, title, view height, language |
+| `app.py` | Streamlit shell: runs the viewer full screen and passes every `.ged` from `data/` into its menu (open your own file there too) |
 | `gedcom_io.py` | GEDCOM reader in plain Python (UTF-8, UTF-16, ANSI/Latin-1) |
 | `viewer.html` | The 3D view (Three.js from cdn.jsdelivr.net). Works on its own too: open it and load a GED file |
 | `data/example-family.ged` | Fictional example tree, all people are invented |
 
 ## Privacy
 
-Uploaded files are processed in the session and not stored. Do not commit real family data (living people!) to a public repository; `.gitignore` ignores every `.ged` except the example.
+Files you open in the viewer stay in your browser and are not uploaded or stored. Do not commit real family data (living people!) to a public repository; `.gitignore` ignores every `.ged` except the example.
 
 ## How heights are estimated
 
