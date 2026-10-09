@@ -133,6 +133,7 @@ header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:
 .card.desc .in{border-color:#2f7fa6;box-shadow:0 0 18px -4px var(--cyan)}
 .card.partner .in{border-color:#9a4a69}
 .card.dim{opacity:.32}
+.card.hover{opacity:1;z-index:100000!important}
 .card.compact .in{padding:3px;gap:0}
 .card.compact .in > div:last-child{display:none}
 .card.gone{opacity:0}
@@ -1069,15 +1070,19 @@ function frame(now){
   requestAnimationFrame(frame);
   if (tween) tween(now);
   controls.update();
+  const hkF = reduceMotion ? 1 : 1 - Math.exp(-Math.min(.1, (now - (frame.last||now))/1000) * 16);
   for (const n of nodes){
     if (!n.label.visible) continue;
     const d = tmp.copy(n.mesh.position).distanceTo(camera.position);
     let s = Math.min(1.05, Math.max(.3, 120/d));
     if (n.st==='sel') s = Math.max(s, .95); else if (n.st==='anc'||n.st==='desc') s = Math.max(s,.62);
     // Unter ca. 7 px Schrift wird der Name unlesbar: dann nur das Kürzel zeigen (mit etwas Hysterese)
-    const small = n.compact ? s < .62 : s < .54;
+    // Maus über einer Karte: Name ausgeschrieben und vergrößert (weich ein- und ausgeblendet)
+    const hk = n.hk = (n.hk||0) + ((n===hovered ? 1 : 0) - (n.hk||0)) * hkF;
+    const small = n===hovered ? false : n.compact ? s < .62 : s < .54;
     if (small !== n.compact){ n.compact = small; n.el.classList.toggle('compact', small); }
     if (small) s = Math.min(.85, Math.max(.5, s*1.5));
+    if (hk > .005) s += (Math.min(2, Math.max(1.6, s*1.5)) - s) * hk; else n.hk = 0;
     n.el.firstChild.style.scale = s.toFixed(3);
   }
   if (flow && axisGroup.visible && !reduceMotion){
