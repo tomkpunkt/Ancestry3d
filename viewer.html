@@ -1,0 +1,1130 @@
+<title>Ancestry3d</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Oxanium:wght@400;500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: Vollbild-3D-Raum, links Steuerpult, rechts Personenakte, Zeitachse im Raum selbst.
+   Bewusst nur dunkel: ein Leitstand im All, der auf jedem Host-Hintergrund gleich aussieht. */
+:root{
+  color-scheme: dark;
+  --void:#060a14;        /* Raum */
+  --panel:#0b1222e6;     /* Glas-Paneele */
+  --line:#1d2a44;        /* Haarlinien */
+  --ink:#dce6f7;         /* Text */
+  --mute:#7f8fac;        /* Nebentext */
+  --cyan:#5fd4ff;        /* Nachfahren, Auswahl */
+  --gold:#ffbf5e;        /* Vorfahren */
+  --rose:#ff7aa8;        /* Partner */
+  --f-display:"Oxanium","Eurostile","Segoe UI",system-ui,sans-serif;
+  --f-body:"Barlow","Segoe UI",system-ui,sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Menlo,monospace;
+}
+html,body{height:100%}
+body{background:var(--void);color:var(--ink);font-family:var(--f-body);font-size:14px;overflow:hidden}
+button,input{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+
+#app{position:relative;height:100%;display:grid;grid-template-rows:auto 1fr;}
+#stage{position:relative;overflow:hidden;min-height:0}
+#gl,#labels{position:absolute;inset:0}
+#gl{z-index:0;width:100%;height:100%;display:block}
+#labels{pointer-events:none;z-index:1}
+[hidden]{display:none!important}
+
+/* ---------- Kopfleiste ---------- */
+header{display:flex;align-items:center;gap:18px;padding:10px 16px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,#0c1426,#080d1a);z-index:5;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:12px;min-width:0}
+.brand svg{flex:none}
+.brand h1{font-family:var(--f-display);font-weight:600;font-size:19px;letter-spacing:.04em;margin:0;line-height:1.1}
+.brand p{margin:0;color:var(--mute);font-size:12px;font-family:var(--f-mono)}
+.hgroup{display:flex;align-items:center;gap:6px}
+.hgroup .lab{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin-right:4px}
+.spacer{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:6px;border:1px solid var(--line);
+  background:#0e1830;cursor:pointer;font-size:13px;white-space:nowrap}
+.btn:hover{border-color:#2f4a78;background:#122040}
+.btn.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 12px #5fd4ff33 inset}
+.btn.icon{width:32px;height:32px;padding:0;justify-content:center}
+.stat{font-family:var(--f-mono);font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.stat b{color:var(--ink);font-weight:500}
+
+/* ---------- Paneele ---------- */
+.panel{position:absolute;top:12px;bottom:12px;background:var(--panel);border:1px solid var(--line);border-radius:10px;
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);z-index:4;display:flex;flex-direction:column;overflow:hidden}
+#left{left:12px;width:258px}
+#right{right:12px;width:320px}
+.scroll{overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:18px;scrollbar-width:thin;scrollbar-color:#24365a transparent}
+.sec h2{font-family:var(--f-display);font-size:11px;font-weight:600;letter-spacing:.16em;text-transform:uppercase;color:var(--mute);margin:0 0 8px}
+.search{position:relative}
+.search input{width:100%;box-sizing:border-box;padding:8px 10px 8px 32px;border-radius:7px;border:1px solid var(--line);background:#070d1b}
+.search input:focus{border-color:var(--cyan);outline:none}
+.search svg{position:absolute;left:10px;top:50%;transform:translateY(-50%);opacity:.6}
+#hits{display:flex;flex-direction:column;margin-top:6px;max-height:220px;overflow:auto}
+.row{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;border:0;background:none;text-align:left;width:100%}
+.row:hover{background:#13213d}
+.row.on{background:#132748}
+.row .dot{width:9px;height:9px;border-radius:50%;flex:none;box-shadow:0 0 8px currentColor}
+.row .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .ct{font-family:var(--f-mono);font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+.row.off{opacity:.4}
+.tog{display:flex;align-items:center;justify-content:space-between;padding:5px 8px;cursor:pointer;gap:8px}
+.tog input{appearance:none;width:30px;height:17px;border-radius:9px;background:#1b2741;position:relative;cursor:pointer;flex:none;transition:background .2s}
+.tog input::after{content:"";position:absolute;top:2px;left:2px;width:13px;height:13px;border-radius:50%;background:#8796b3;transition:transform .2s,background .2s}
+.tog input:checked{background:#16486a}
+.tog input:checked::after{transform:translateX(13px);background:var(--cyan);box-shadow:0 0 8px var(--cyan)}
+.seg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
+.seg .btn{justify-content:center;font-size:12px;padding:6px 4px}
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 8px;align-items:center;font-size:12.5px;color:var(--mute)}
+.legend i{width:22px;height:3px;border-radius:2px;display:block}
+
+/* ---------- Personenakte ---------- */
+#right .head{padding:14px;border-bottom:1px solid var(--line);display:flex;gap:12px;align-items:flex-start}
+.avatar{width:58px;height:58px;border-radius:10px;flex:none;display:grid;place-items:center;font-family:var(--f-display);font-weight:600;font-size:20px;
+  border:1px solid currentColor;box-shadow:0 0 18px -4px currentColor inset}
+#right .head h3{font-family:var(--f-display);font-size:18px;font-weight:600;margin:0 0 3px;line-height:1.2;text-wrap:balance}
+#right .head .sub{color:var(--mute);font-size:13px;line-height:1.45}
+.x{margin-left:auto}
+.hbtns{margin-left:auto;display:flex;gap:6px;flex:none}
+#right.mini{bottom:auto}
+#right.mini .scroll > :not(.head){display:none}
+#right.mini .head{border-bottom:0;padding-block:10px}
+#right.mini .scroll{padding-bottom:0}
+#right.mini .avatar{width:40px;height:40px;font-size:15px;border-radius:8px}
+#right.mini .head h3{font-size:16px}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:6px 10px;font-size:13px}
+.kv dt{color:var(--mute)}
+.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+.chips{display:flex;flex-direction:column;gap:4px}
+.chip{display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;border:1px solid var(--line);background:#0b1428;cursor:pointer;text-align:left;width:100%}
+.chip:hover{border-color:#34507f}
+.chip .mini{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-family:var(--f-display);border:1px solid currentColor;flex:none}
+.chip .t{flex:1;min-width:0}
+.chip .t b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .t small{color:var(--mute);font-family:var(--f-mono);font-size:11px}
+.counts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.count{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.count b{font-family:var(--f-display);font-size:22px;font-weight:600;display:block;font-variant-numeric:tabular-nums}
+.count span{font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--mute)}
+.count.a b{color:var(--gold)} .count.d b{color:var(--cyan)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.empty{color:var(--mute);font-size:13px;line-height:1.5}
+.badge{display:inline-block;font-family:var(--f-mono);font-size:10.5px;padding:1px 6px;border-radius:4px;border:1px solid #6b5a2e;color:var(--gold);margin-left:6px;vertical-align:1px}
+
+/* ---------- Karten im Raum ---------- */
+.card{pointer-events:none;transition:opacity .35s}
+.card .in{display:flex;align-items:center;gap:7px;padding:4px 9px 4px 4px;border-radius:7px;white-space:nowrap;
+  background:linear-gradient(135deg,#0f1b34ee,#0a1226ee);border:1px solid #2a3c62;box-shadow:0 0 14px -6px var(--c);
+  transform-origin:17px 50%;translate:-17px 0;transition:border-color .3s, box-shadow .3s}
+.card .ini{width:24px;height:24px;border-radius:5px;display:grid;place-items:center;font:600 10.5px var(--f-display);color:var(--c);border:1px solid var(--c);background:#0006}
+.card .nm{font:500 12.5px/1.15 var(--f-body);color:var(--ink)}
+.card .yr{font:400 10.5px/1.2 var(--f-mono);color:var(--mute)}
+.card.est .yr::before{content:"≈ "}
+.card.hover .in{border-color:var(--c);box-shadow:0 0 18px -4px var(--c)}
+.card.sel .in{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan),0 0 26px -2px var(--cyan);background:linear-gradient(135deg,#123058f2,#0a1a36f2)}
+.card.anc .in{border-color:#a8782f;box-shadow:0 0 18px -4px var(--gold)}
+.card.desc .in{border-color:#2f7fa6;box-shadow:0 0 18px -4px var(--cyan)}
+.card.partner .in{border-color:#9a4a69}
+.card.dim{opacity:.32}
+.card.compact .in{padding:3px;gap:0}
+.card.compact .in > div:last-child{display:none}
+.card.gone{opacity:0}
+.noyr .card .yr{display:none}
+.axis{font:500 11px var(--f-mono);color:#6f87b5;letter-spacing:.05em;translate:-100% 0;padding-right:10px;text-shadow:0 0 8px #000}
+.axis.major{color:#a9c4f0;font-size:13px}
+.axis.cap{font-family:var(--f-display);letter-spacing:.14em;text-transform:uppercase;font-size:10.5px;color:var(--mute)}
+
+/* ---------- Unterkante ---------- */
+#hint{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);display:flex;gap:18px;padding:8px 14px;border-radius:8px;
+  background:var(--panel);border:1px solid var(--line);font-size:12px;color:var(--mute);z-index:3;white-space:nowrap}
+#hint b{color:var(--ink);font-weight:500}
+#loader{position:absolute;inset:0;display:grid;place-items:center;z-index:9;background:var(--void)}
+#loader .box{text-align:center;display:flex;flex-direction:column;gap:12px;align-items:center;padding-inline:16px}
+#loader .t{font-family:var(--f-display);letter-spacing:.2em;text-transform:uppercase;color:var(--cyan)}
+#loader p{color:var(--mute);max-width:42ch;line-height:1.5;margin:0}
+.toggleL{display:none}
+
+@media (max-width:1500px){ .h-drop{display:none} }
+@media (max-width:1100px){ #right{width:290px} #left{width:230px} }
+@media (max-width:860px){
+  .toggleL{display:inline-flex}
+  #left{display:none;top:8px;left:8px;bottom:auto;max-height:70%;width:min(300px,calc(100% - 16px))}
+  #left.open{display:flex}
+  #right{left:8px;right:8px;top:auto;bottom:8px;width:auto;max-height:46%}
+  #right.idle{display:none}
+  #right.mini{bottom:8px}
+  #hint{display:none}
+  header{gap:10px;padding:8px 12px}
+  .hide-s{display:none}
+}
+@media (prefers-reduced-motion:reduce){ .card,.card .in{transition:none} }
+</style>
+
+<div id="app">
+  <header>
+    <div class="brand">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" aria-hidden="true">
+        <circle cx="15" cy="5" r="3" fill="#ffbf5e"/><circle cx="7" cy="15" r="2.6" fill="#5fd4ff"/><circle cx="23" cy="15" r="2.6" fill="#5fd4ff"/><circle cx="15" cy="25" r="3" fill="#dce6f7"/>
+        <path d="M15 8v4M15 12L7 15M15 12l8 3M7 18l8 4M23 18l-8 4" stroke="#5fd4ff" stroke-width="1.2" opacity=".7"/>
+      </svg>
+      <div><h1 id="brandTitle">Ancestry3d</h1><p id="meta" data-i18n="loading">lädt …</p></div>
+    </div>
+    <button class="btn toggleL" id="menuBtn" aria-controls="left" data-i18n="menu">Menü</button>
+    <div class="spacer"></div>
+    <div class="hgroup hide-s"><span class="lab" data-i18n="view">Ansicht</span>
+      <button class="btn icon" id="homeBtn" data-i18n-title="overview" title="Gesamtansicht" aria-label="Gesamtansicht">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 7.5L8 2l6 5.5M4 6.5V14h8V6.5"/></svg></button>
+      <button class="btn icon" id="spinBtn" data-i18n-title="spin" title="Langsam drehen" aria-label="Langsam drehen">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M13.5 8A5.5 5.5 0 1 1 11 3.4"/><path d="M11 1v3h3"/></svg></button>
+      <button class="btn icon" id="zin" data-i18n-title="zoomIn" aria-label="Näher">+</button>
+      <button class="btn icon" id="zout" data-i18n-title="zoomOut" aria-label="Weiter weg">−</button>
+    </div>
+    <button class="btn" id="langBtn" title="Sprache / Language">EN</button>
+    <label class="btn" for="file" data-i18n-title="openTip" title="Eigene GED-Datei öffnen oder in den Raum ziehen"><span data-i18n="open">GED-Datei öffnen</span><input type="file" id="file" hidden></label>
+  </header>
+
+  <div id="stage">
+    <canvas id="gl"></canvas>
+    <div id="labels"></div>
+
+    <aside class="panel" id="left">
+      <div class="scroll">
+        <div class="sec">
+          <div class="search">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="7" cy="7" r="5"/><path d="M11 11l4 4"/></svg>
+            <input id="q" type="search" data-i18n-ph="search" placeholder="Person suchen" autocomplete="off" aria-label="Person suchen">
+          </div>
+          <div id="hits"></div>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="visible">Sichtbar</h2>
+          <div class="seg" role="group" aria-label="Sichtbare Personen">
+            <button class="btn on" data-mode="alle" data-i18n="all">Alle</button>
+            <button class="btn" data-mode="strang" data-i18n="line">Strang</button>
+            <button class="btn" data-mode="linie" id="rootBtn">–</button>
+          </div>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="branches">Familienzweige</h2>
+          <div id="branches"></div>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="display">Darstellung</h2>
+          <label class="tog"><span data-i18n="tNames">Namenskarten</span><input type="checkbox" id="tNames" checked></label>
+          <label class="tog"><span data-i18n="tYears">Lebensjahre</span><input type="checkbox" id="tYears" checked></label>
+          <label class="tog"><span data-i18n="tEdges">Verbindungen</span><input type="checkbox" id="tEdges" checked></label>
+          <label class="tog"><span data-i18n="tAxis">Zeitachse &amp; Ebenen</span><input type="checkbox" id="tAxis" checked></label>
+          <label class="tog"><span data-i18n="tGlow">Leuchten</span><input type="checkbox" id="tGlow" checked></label>
+        </div>
+        <div class="sec">
+          <h2 data-i18n="legend">Legende</h2>
+          <div class="legend">
+            <i style="background:var(--gold);box-shadow:0 0 6px var(--gold)"></i><span data-i18n="ancestors">Vorfahren</span>
+            <i style="background:var(--cyan);box-shadow:0 0 6px var(--cyan)"></i><span data-i18n="descendants">Nachfahren</span>
+            <i style="background:var(--rose)"></i><span data-i18n="spouses">Ehepartner</span>
+            <span style="font-family:var(--f-mono);font-size:11px">≈ 1880</span><span data-i18n="estLegend">Geburtsjahr geschätzt</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <aside class="panel idle" id="right" aria-live="polite">
+      <div class="scroll" id="detail"></div>
+    </aside>
+
+    <div id="hint" data-i18n-html="hint"></div>
+
+    <div id="loader"><div class="box"><div class="t" data-i18n="loadingTree">Stammbaum wird geladen</div><p id="loadMsg"></p></div></div>
+  </div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { Line2 } from 'three/addons/lines/Line2.js';
+import { LineMaterial } from 'three/addons/lines/LineMaterial.js';
+import { LineGeometry } from 'three/addons/lines/LineGeometry.js';
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const store = {
+  get(k){ try{ return localStorage.getItem(k) }catch(e){ return null } },
+  set(k,v){ try{ localStorage.setItem(k,v) }catch(e){} }
+};
+let ROOT_ID = null;              // Hauptperson der geladenen Datei (CFG.home oder erste Person)
+/* ================= Sprachen ================= */
+const I18N = {
+  de: {
+    loading:'lädt …', menu:'Menü', view:'Ansicht', overview:'Gesamtansicht', spin:'Langsam drehen', zoomIn:'Näher', zoomOut:'Weiter weg',
+    open:'GED-Datei öffnen', openTip:'Eigene GED-Datei öffnen oder in den Raum ziehen', search:'Person suchen', visible:'Sichtbar', all:'Alle', line:'Strang',
+    branches:'Familienzweige', display:'Darstellung', tNames:'Namenskarten', tYears:'Lebensjahre', tEdges:'Verbindungen', tAxis:'Zeitachse & Ebenen', tGlow:'Leuchten',
+    legend:'Legende', ancestors:'Vorfahren', descendants:'Nachfahren', spouses:'Ehepartner', estLegend:'Geburtsjahr geschätzt',
+    hint:'<span><b>Ziehen</b> drehen</span><span><b>Scrollen</b> zoomen</span><span><b>Rechtsklick</b> verschieben</span><span><b>Klick</b> Strang zeigen</span><span><b>Esc</b> aufheben</span><span class="h-drop"><b>GED-Datei</b> hierher ziehen</span>',
+    loadingTree:'Stammbaum wird geladen', reading:'Lese {name} …', arranging:'Ordne {n} Personen aus {name} im Raum an …',
+    noFile:'Öffne oben eine GED-Datei (GEDCOM 5.5 oder 5.5.1) oder ziehe sie hierher.',
+    badFile:'Die Datei {name} ließ sich nicht lesen ({err}). Wähle oben eine GED-Datei (GEDCOM 5.5 oder 5.5.1).', noPeople:'Keine Personen gefunden',
+    meta:'<b>{p}</b> Personen · <b>{f}</b> Familien · {y0}–{y1} · {est} geschätzt · {name}',
+    otherNames:'Weitere Namen', noHit:'Kein Treffer.', onlyLineOf:'Nur die Linie von {name}',
+    older:'Ältere Generationen', younger:'Jüngere Generationen',
+    person:'Person', emptyHelp:'Klicke auf eine Person im Raum oder suche links nach einem Namen. Ihr Strang leuchtet dann auf: Vorfahren in Gold, Nachfahren in Cyan.',
+    heightHelpH:'Höhe im Raum', heightHelp:'Ein Jahr entspricht einer Raumeinheit. Wer 1800 geboren ist, steht etwas höher als jemand von 1801. Fehlt ein Geburtsdatum, wird das Jahr aus Eltern, Kindern, Partnern, Heirat oder Tod geschätzt und mit ≈ markiert.',
+    born:'Geboren', birthPlace:'Geburtsort', died:'Gestorben', deathPlace:'Sterbeort', occupation:'Beruf', height:'Höhe im Raum',
+    baptism:' (Taufe)', burial:' (Begräbnis)', diedUnknown:'ja, Datum unbekannt', nee:'geb.',
+    expand:'Details aufklappen', collapse:'Details minimieren', expandT:'Aufklappen', collapseT:'Minimieren', clear:'Auswahl aufheben',
+    focus:'Fokussieren', onlyLine:'Nur diesen Strang', exportBtn:'Bild exportieren', exportTip:'Aktuelle Ansicht als PNG in etwa 4K speichern',
+    basics:'Grunddaten', parents:'Eltern', notRecorded:'nicht erfasst', partner:'Partner', family:'Familie', married:'Heirat', children:'Kinder', record:'Datensatz',
+    rendering:'Rendere Bild …', saved:'Gespeichert', declined:'Abgebrochen', wait:'Bitte kurz warten', saveFail:'Speichern nicht möglich',
+    footer:'{a} Vorfahren (gold) · {d} Nachfahren (cyan) · {title} · {date}', filePrefix:'Stammbaum',
+    est_approx:'ca.', est_est:'geschätzt', est_unknown:'unbekannt', noData:'ohne Daten', before:'vor ',
+    why_birth:'Geburtsdatum', why_bapt:'Taufdatum', why_from:'aus {parts}', why_none:'keine Daten, unten eingeordnet', and:' und ',
+    src_spouse:'Ehepartner', src_parents:'Eltern', src_children:'Kinder', src_marriage:'Heiratsjahr', src_death:'Sterbejahr',
+    months:['','Jan.','Feb.','März','Apr.','Mai','Juni','Juli','Aug.','Sep.','Okt.','Nov.','Dez.'],
+    dq:{ABT:'ca. ',EST:'geschätzt ',CAL:'errechnet ',BEF:'vor ',AFT:'nach ',FROM:'ab ',TO:'bis '}, between:'zw. {a} und {b}', dayFmt:'{d}. {m} {y}', locale:'de-DE'
+  },
+  en: {
+    loading:'loading …', menu:'Menu', view:'View', overview:'Overview', spin:'Rotate slowly', zoomIn:'Closer', zoomOut:'Further away',
+    open:'Open GED file', openTip:'Open your own GED file or drop it into the space', search:'Search person', visible:'Visible', all:'All', line:'Line',
+    branches:'Family branches', display:'Display', tNames:'Name cards', tYears:'Life years', tEdges:'Connections', tAxis:'Time axis & rings', tGlow:'Glow',
+    legend:'Legend', ancestors:'Ancestors', descendants:'Descendants', spouses:'Spouses', estLegend:'Birth year estimated',
+    hint:'<span><b>Drag</b> rotate</span><span><b>Scroll</b> zoom</span><span><b>Right-click</b> pan</span><span><b>Click</b> show line</span><span><b>Esc</b> clear</span><span class="h-drop"><b>GED file</b> drop here</span>',
+    loadingTree:'Loading family tree', reading:'Reading {name} …', arranging:'Arranging {n} people from {name} …',
+    noFile:'Open a GED file above (GEDCOM 5.5 or 5.5.1) or drop it here.',
+    badFile:'{name} could not be read ({err}). Choose a GED file above (GEDCOM 5.5 or 5.5.1).', noPeople:'No people found',
+    meta:'<b>{p}</b> people · <b>{f}</b> families · {y0}–{y1} · {est} estimated · {name}',
+    otherNames:'Other names', noHit:'No match.', onlyLineOf:'Only the line of {name}',
+    older:'Older generations', younger:'Younger generations',
+    person:'Person', emptyHelp:'Click a person in the space or search for a name on the left. Their line lights up: ancestors in gold, descendants in cyan.',
+    heightHelpH:'Height in space', heightHelp:'One year equals one unit of height. Someone born in 1800 sits slightly above someone born in 1801. If a birth date is missing, the year is estimated from parents, children, partners, marriage or death and marked with ≈.',
+    born:'Born', birthPlace:'Birthplace', died:'Died', deathPlace:'Place of death', occupation:'Occupation', height:'Height in space',
+    baptism:' (baptism)', burial:' (burial)', diedUnknown:'yes, date unknown', nee:'née',
+    expand:'Expand details', collapse:'Minimize details', expandT:'Expand', collapseT:'Minimize', clear:'Clear selection',
+    focus:'Focus', onlyLine:'Only this line', exportBtn:'Export image', exportTip:'Save the current view as a PNG (about 4K)',
+    basics:'Details', parents:'Parents', notRecorded:'not recorded', partner:'Partner', family:'Family', married:'Married', children:'Children', record:'Record',
+    rendering:'Rendering image …', saved:'Saved', declined:'Cancelled', wait:'Please wait a moment', saveFail:'Could not save',
+    footer:'{a} ancestors (gold) · {d} descendants (cyan) · {title} · {date}', filePrefix:'FamilyTree',
+    est_approx:'approx.', est_est:'estimated', est_unknown:'unknown', noData:'no data', before:'before ',
+    why_birth:'birth date', why_bapt:'baptism date', why_from:'from {parts}', why_none:'no data, placed at the bottom', and:' and ',
+    src_spouse:'spouse', src_parents:'parents', src_children:'children', src_marriage:'marriage year', src_death:'death year',
+    months:['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+    dq:{ABT:'abt. ',EST:'est. ',CAL:'calc. ',BEF:'before ',AFT:'after ',FROM:'from ',TO:'to '}, between:'between {a} and {b}', dayFmt:'{d} {m} {y}', locale:'en-GB'
+  }
+};
+const CFG = Object.assign({title:'Ancestry3d', home:null, src:null, lang:null}, window.GED_DEFAULTS || {}, window.GED_EMBED || {});
+let LANG = (() => {
+  const saved = store.get('a3d.lang');
+  const want = CFG.lang || saved || (navigator.language || 'en');
+  return String(want).toLowerCase().startsWith('de') ? 'de' : 'en';
+})();
+function t(key, vars){
+  let v = (I18N[LANG] && I18N[LANG][key]) ?? I18N.en[key] ?? key;
+  if (vars && typeof v === 'string') v = v.replace(/\{(\w+)\}/g, (m, k) => vars[k] ?? m);
+  return v;
+}
+function applyStatic(){
+  document.documentElement.lang = LANG;
+  document.querySelectorAll('[data-i18n]').forEach(e => e.textContent = t(e.dataset.i18n));
+  document.querySelectorAll('[data-i18n-html]').forEach(e => e.innerHTML = t(e.dataset.i18nHtml));
+  document.querySelectorAll('[data-i18n-title]').forEach(e => { e.title = t(e.dataset.i18nTitle); e.setAttribute('aria-label', t(e.dataset.i18nTitle)); });
+  document.querySelectorAll('[data-i18n-ph]').forEach(e => { e.placeholder = t(e.dataset.i18nPh); e.setAttribute('aria-label', t(e.dataset.i18nPh)); });
+  $('#langBtn').textContent = LANG === 'de' ? 'EN' : 'DE';
+}
+const YEAR = 1.0;                 // Raumeinheiten pro Jahr (vertikal)
+
+/* ================= GEDCOM ================= */
+function parseGedcom(text){
+  text = text.replace(/^﻿/, '');
+  const root = {tag:'ROOT', children:[]}, stack = [root], recs = [];
+  for (const raw of text.split(/\r\n|\r|\n/)){
+    const m = raw.match(/^\s*(\d+)\s+(?:(@[^@\s]+@)\s+)?(\S+)(?: (.*))?$/);
+    if (!m) continue;
+    const lvl = +m[1], tag = m[3].toUpperCase(), val = (m[4]||'');
+    const parent = stack[Math.min(lvl, stack.length-1)];
+    if (tag==='CONC'||tag==='CONT'){ parent.val = (parent.val||'') + (tag==='CONT'?'\n':'') + val; continue; }
+    const node = {tag, xref:m[2]||null, val: val.replace(/@@/g,'@').trim(), children:[]};
+    parent.children.push(node);
+    stack.length = Math.min(lvl, stack.length-1)+1; stack.push(node);
+    if (lvl===0) recs.push(node);
+  }
+  return recs;
+}
+const kid  = (n,t) => n && n.children.find(c => c.tag===t);
+const kids = (n,t) => n ? n.children.filter(c => c.tag===t) : [];
+const MON = {JAN:1,FEB:2,MAR:3,APR:4,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,NOV:11,DEC:12};
+function simple(s){
+  const p = s.trim().split(/\s+/); let d=0,m=0,y=0;
+  if (p.length>=3){ d=+p[0]; m=MON[p[1]]||0; y=parseInt(p[2]); }
+  else if (p.length===2){ m=MON[p[0]]||0; y=parseInt(p[1]); }
+  else y=parseInt(p[0]);
+  return y ? {y,m,d:isNaN(d)?0:d} : null;
+}
+function parseDate(raw){
+  if (!raw) return null;
+  const s = raw.toUpperCase().replace(/\s+/g,' ').trim(); let m;
+  if ((m = s.match(/^(?:BET|FROM) (.+) (?:AND|TO) (.+)$/))){
+    const a=simple(m[1]), b=simple(m[2]); if(!a||!b) return null;
+    return {raw, q:'BET', a, b, v:(dec(a)+dec(b))/2};
+  }
+  let q='';
+  if ((m = s.match(/^(ABT|EST|CAL|BEF|AFT|INT|FROM|TO)\.? (.+)$/))){ q=m[1]; m=m[2]; } else m=s;
+  const p = simple(m.replace(/\(.*\)$/,'')); if(!p) return null;
+  return {raw, q, ...p, v:dec(p)};
+}
+function dec(p){ return p.y + (p.m ? (p.m-1)/12 + (p.d ? (p.d-1)/365 : 1/24) : .5); }
+function fmtS(p){ const M = t('months'); return p.d&&p.m ? t('dayFmt', {d:p.d, m:M[p.m], y:p.y}) : p.m ? `${M[p.m]} ${p.y}` : String(p.y); }
+function fmtDate(d){
+  if (!d) return '';
+  if (d.q==='BET') return t('between', {a:fmtS(d.a), b:fmtS(d.b)});
+  return (t('dq')[d.q]||'') + fmtS(d);
+}
+function event(rec, tags){
+  for (const t of tags){
+    const e = kid(rec,t); if (!e) continue;
+    const d = parseDate(kid(e,'DATE')?.val), plac = kid(e,'PLAC')?.val || '';
+    if (d || plac || e.val==='Y') return {tag:t, date:d, place:plac};
+  }
+  return null;
+}
+
+/* Zeichensatz: UTF-8/UTF-16 erkennen, ANSI/Latin-1 und ANSEL-Dateien als Windows-1252 lesen */
+function decodeGed(buf){
+  const u = new Uint8Array(buf);
+  if (u[0]===0xFF && u[1]===0xFE) return new TextDecoder('utf-16le').decode(buf);
+  if (u[0]===0xFE && u[1]===0xFF) return new TextDecoder('utf-16be').decode(buf);
+  if (u[0]===0x30 && u[1]===0x00) return new TextDecoder('utf-16le').decode(buf);
+  if (u[0]===0x00 && u[1]===0x30) return new TextDecoder('utf-16be').decode(buf);
+  const head = new TextDecoder('latin1').decode(u.subarray(0, 4000));
+  const ch = (head.match(/^\s*1\s+CHAR\s+(\S+)/m)||[])[1]?.toUpperCase() || '';
+  if (/^(ANSI|WINDOWS|CP1252|ISO|LATIN|IBMPC|ASCII)/.test(ch)) return new TextDecoder('windows-1252').decode(buf);
+  try { return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){ return new TextDecoder('windows-1252').decode(buf); }
+}
+
+/* ================= Modell ================= */
+let P = new Map(), F = new Map();
+function buildModel(text){
+  const recs = parseGedcom(text);
+  P = new Map(); F = new Map();
+  for (const r of recs){
+    if (r.tag==='INDI'){
+      const n = kid(r,'NAME'), nv = n?.val || '';
+      const sur = (kid(n,'SURN')?.val || (nv.match(/\/(.*?)\//)||[])[1] || '').trim();
+      let giv = (kid(n,'GIVN')?.val || nv.replace(/\/.*?\//,'')).trim();
+      const marn = (kid(n,'_MARNM')?.val || '').trim();
+      const birth = event(r,['BIRT','CHR','BAPM']), death = event(r,['DEAT','BURI']);
+      P.set(r.xref, {
+        id:r.xref, given:giv || '?', sur, marn: marn && marn!==sur ? marn : '',
+        sex: kid(r,'SEX')?.val || 'U', birth, death,
+        occu: kids(r,'OCCU').map(o=>o.val).filter(Boolean),
+        famc: kids(r,'FAMC').map(x=>x.val), fams: kids(r,'FAMS').map(x=>x.val),
+      });
+    } else if (r.tag==='FAM'){
+      const marr = event(r,['MARR']);
+      F.set(r.xref, {id:r.xref, husb:kid(r,'HUSB')?.val||null, wife:kid(r,'WIFE')?.val||null, chil:kids(r,'CHIL').map(c=>c.val), marr});
+    }
+  }
+  for (const f of F.values()){ // Verweise bereinigen
+    if (f.husb && !P.has(f.husb)) f.husb=null;
+    if (f.wife && !P.has(f.wife)) f.wife=null;
+    f.chil = f.chil.filter(c=>P.has(c));
+  }
+  for (const p of P.values()){
+    p.famc = p.famc.filter(id=>F.has(id)); p.fams = p.fams.filter(id=>F.has(id));
+    p.name = `${p.given} ${p.marn || p.sur}`.trim();
+    p.initials = (p.given[0]||'') + ((p.marn||p.sur)[0]||'');
+  }
+  estimateYears();
+}
+const parentsOf  = p => p.famc.flatMap(f => [F.get(f).husb, F.get(f).wife]).filter(Boolean);
+const childrenOf = p => p.fams.flatMap(f => F.get(f).chil);
+const spousesOf  = p => p.fams.map(f => { const x=F.get(f); return x.husb===p.id ? x.wife : x.husb; }).filter(Boolean);
+
+/* Geburtsjahr: belegt, sonst aus Eltern, Kindern, Partnern, Heirat oder Tod geschätzt */
+function estimateYears(){
+  for (const p of P.values()){
+    const d = p.birth?.date;
+    if (d && d.q!=='BEF' && d.q!=='AFT'){ p.year = d.v; p.est = !!d.q && d.q!=='BET' ? 'approx' : null; p.why = {k: p.birth.tag==='BIRT' ? 'birth' : 'bapt'}; }
+    else p.year = null;
+  }
+  for (let pass=0; pass<12; pass++){
+    let changed = false;
+    for (const p of P.values()){
+      if (p.year!=null) continue;
+      const c = [];
+      const sp = spousesOf(p).map(id=>P.get(id)).filter(x=>x.year!=null && !x.tmp);
+      if (sp.length) c.push([sp[0].year + (p.sex==='M'?-2:2), 'spouse', 3]);
+      const pa = parentsOf(p).map(id=>P.get(id)).filter(x=>x.year!=null && !x.tmp);
+      if (pa.length) c.push([avg(pa.map(x=>x.year)) + 28, 'parents', 2]);
+      const ch = childrenOf(p).map(id=>P.get(id)).filter(x=>x.year!=null && !x.tmp);
+      if (ch.length) c.push([Math.min(...ch.map(x=>x.year)) - 27, 'children', 2]);
+      const mar = p.fams.map(f=>F.get(f).marr?.date).filter(Boolean)[0];
+      if (mar) c.push([mar.v - 26, 'marriage', 2]);
+      const dd = p.death?.date;
+      if (dd && dd.q!=='BEF' && dd.q!=='AFT') c.push([dd.v - 68, 'death', 1]);
+      if (!c.length) continue;
+      const best = Math.max(...c.map(x=>x[2])), use = c.filter(x=>x[2]===best);
+      p.year = avg(use.map(x=>x[0])); p.est = 'est'; p.why = {k:'from', parts: use.map(x=>x[1])};
+      p.tmp = true; changed = true;
+    }
+    for (const p of P.values()) delete p.tmp;
+    if (!changed) break;
+  }
+  const known = [...P.values()].filter(p=>p.year!=null).map(p=>p.year).sort((a,b)=>a-b);
+  const fallback = known.length ? known[known.length-1] : 1950;
+  for (const p of P.values()) if (p.year==null){ p.year = fallback; p.est='unknown'; p.why={k:'none'}; }
+}
+const avg = a => a.reduce((s,x)=>s+x,0)/a.length;
+const whyText = p => p.why.k==='from' ? t('why_from', {parts: p.why.parts.map(x=>t('src_'+x)).join(t('and'))}) : t('why_'+p.why.k);
+
+/* Zweige nach Geburtsname */
+const BR_COLORS = ['#5fd4ff','#ff7aa8','#ffbf5e','#8f8bff','#5fe0a8','#ff9a62','#c48bff','#e3e86a'];
+let branches = [];
+function buildBranches(){
+  const cnt = new Map();
+  for (const p of P.values()){ const k = p.sur || '–'; cnt.set(k,(cnt.get(k)||0)+1); }
+  const top = [...cnt.entries()].filter(([k])=>k!=='–').sort((a,b)=>b[1]-a[1]).slice(0,7).map(([k])=>k);
+  branches = top.map((k,i)=>({key:k, label:k, color:BR_COLORS[i], n:cnt.get(k), on:true}));
+  const rest = {key:'*', label:null, color:'#8a9ab8', n:0, on:true};
+  for (const p of P.values()){
+    const b = branches.find(b=>b.key===p.sur); p.br = b || rest; if(!b) rest.n++;
+  }
+  branches.push(rest);
+}
+
+/* ================= Raumaufbau ================= */
+let Y0 = 1800, Y1 = 2000;
+const yOf = year => (Y0 - year) * YEAR;   // älter = höher
+
+function rng(seed){ return () => (seed = (seed*16807) % 2147483647) / 2147483647; }
+function layout(){
+  const rnd = rng(42), ps = [...P.values()];
+  const bi = new Map(branches.map((b,i)=>[b,i]));
+  ps.forEach(p => {
+    const a = (bi.get(p.br) / branches.length) * Math.PI*2 + rnd()*.6, r = 25 + rnd()*20;
+    p.x = Math.cos(a)*r; p.z = Math.sin(a)*r; p.y = yOf(p.year);
+  });
+  const edges = [];
+  for (const f of F.values()){
+    const par = [f.husb,f.wife].filter(Boolean);
+    for (const a of par) for (const c of f.chil) edges.push([P.get(a),P.get(c),16,.04]);
+    if (par.length===2) edges.push([P.get(par[0]),P.get(par[1]),9,.12]);
+    for (let i=0;i<f.chil.length;i++) for (let j=i+1;j<f.chil.length;j++) edges.push([P.get(f.chil[i]),P.get(f.chil[j]),14,.015]);
+  }
+  ps.sort((a,b)=>a.y-b.y);
+  const N = ps.length, ITER = N<=400 ? 500 : N<=1500 ? 260 : 140;
+  for (let it=0; it<ITER; it++){
+    const t = 1 - it/ITER, fx = new Float64Array(N), fz = new Float64Array(N);
+    ps.forEach((p,i)=>p._i=i);
+    for (let i=0;i<N;i++) for (let j=i+1;j<N;j++){
+      const a=ps[i], b=ps[j], dy=(a.y-b.y)/14;
+      if (b.y-a.y > 28) break;
+      const w=Math.exp(-dy*dy);
+      let dx=a.x-b.x, dz=a.z-b.z, d2=dx*dx+dz*dz+.01;
+      const f = 260*w/d2; const d=Math.sqrt(d2); dx/=d; dz/=d;
+      fx[i]+=dx*f; fz[i]+=dz*f; fx[j]-=dx*f; fz[j]-=dz*f;
+    }
+    for (const [a,b,len,k] of edges){
+      let dx=b.x-a.x, dz=b.z-a.z; const d=Math.sqrt(dx*dx+dz*dz)+.01, f=k*(d-len);
+      dx/=d; dz/=d; fx[a._i]+=dx*f; fz[a._i]+=dz*f; fx[b._i]-=dx*f; fz[b._i]-=dz*f;
+    }
+    for (let i=0;i<N;i++){
+      const p=ps[i]; fx[i]-=p.x*.003; fz[i]-=p.z*.003;
+      const m = Math.hypot(fx[i],fz[i]), cap = 3*t+.2;
+      const s = m>cap ? cap/m : 1; p.x += fx[i]*s; p.z += fz[i]*s;
+    }
+  }
+}
+
+/* ================= Three.js ================= */
+const canvas = $('#gl'), stage = $('#stage');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const scene = new THREE.Scene();
+scene.background = new THREE.Color('#060a14');
+scene.fog = new THREE.FogExp2('#060a14', .0017);
+const camera = new THREE.PerspectiveCamera(45, 1, .5, 4000);
+const labels = new CSS2DRenderer({element: $('#labels')});
+const controls = new OrbitControls(camera, $('#labels').parentElement === stage ? canvas : canvas);
+controls.enableDamping = true; controls.dampingFactor = .08; controls.autoRotateSpeed = .5;
+const composer = new EffectComposer(renderer);
+composer.addPass(new RenderPass(scene, camera));
+const bloom = new UnrealBloomPass(new THREE.Vector2(1,1), .6, .4, .2);
+composer.addPass(bloom); composer.addPass(new OutputPass());
+
+const world = new THREE.Group(); scene.add(world);
+const axisGroup = new THREE.Group(); scene.add(axisGroup);
+const edgeGroup = new THREE.Group(); world.add(edgeGroup);
+
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+let flow = null;   // Zeitstrom-Partikel auf der Zylinderwand
+
+const MAT = {
+  base:   new LineMaterial({color:0x3f6fae, linewidth:1.2, transparent:true, opacity:.55, depthWrite:false}),
+  dim:    new LineMaterial({color:0x2a4470, linewidth:1,   transparent:true, opacity:.3, depthWrite:false}),
+  anc:    new LineMaterial({color:0xffbf5e, linewidth:2.2, transparent:true, opacity:.9, depthWrite:false}),
+  desc:   new LineMaterial({color:0x5fd4ff, linewidth:2.2, transparent:true, opacity:.9, depthWrite:false}),
+  spouse: new LineMaterial({color:0xff7aa8, linewidth:1.8, transparent:true, opacity:.9, depthWrite:false}),
+  sbase:  new LineMaterial({color:0x7a3d63, linewidth:1,   transparent:true, opacity:.45, depthWrite:false}),
+};
+const nodeGeo = new THREE.SphereGeometry(.9, 16, 12);
+const haloTex = (() => { const c=document.createElement('canvas'); c.width=c.height=64; const x=c.getContext('2d');
+  const g=x.createRadialGradient(32,32,0,32,32,32); g.addColorStop(0,'#ffffffcc'); g.addColorStop(.25,'#ffffff44'); g.addColorStop(1,'#ffffff00');
+  x.fillStyle=g; x.fillRect(0,0,64,64); return new THREE.CanvasTexture(c); })();
+
+let edges = [], nodes = [];
+function curve(a, b, n=22){
+  const pts = [], dy = (a.y-b.y)*.55;
+  const c = new THREE.CubicBezierCurve3(a, new THREE.Vector3(a.x,a.y-dy,a.z), new THREE.Vector3(b.x,b.y+dy,b.z), b);
+  for (const p of c.getPoints(n)) pts.push(p.x,p.y,p.z);
+  return pts;
+}
+function addLine(pts, kind, meta){
+  const g = new LineGeometry(); g.setPositions(pts);
+  const l = new Line2(g, kind==='spouse' ? MAT.sbase : MAT.base); l.computeLineDistances();
+  Object.assign(l.userData, {kind, ...meta}); edgeGroup.add(l); edges.push(l);
+}
+
+function buildScene(){
+  world.remove(edgeGroup); edgeGroup.clear(); world.add(edgeGroup);
+  for (const n of nodes){ world.remove(n.mesh); world.remove(n.halo); world.remove(n.label); n.label.element.remove(); }
+  nodes = []; edges = []; axisGroup.clear();
+  $('#labels').querySelectorAll('.axis').forEach(e=>e.remove());
+
+  for (const p of P.values()){
+    const col = new THREE.Color(p.br.color);
+    const mesh = new THREE.Mesh(nodeGeo, new THREE.MeshBasicMaterial({color:col, transparent:true}));
+    mesh.position.set(p.x,p.y,p.z); mesh.userData.p = p; world.add(mesh);
+    const halo = new THREE.Sprite(new THREE.SpriteMaterial({map:haloTex, color:col, transparent:true, opacity:.7, depthWrite:false}));
+    halo.scale.setScalar(5); halo.position.copy(mesh.position); world.add(halo);
+    const el = document.createElement('div');
+    el.className = 'card' + (p.est ? ' est' : '');
+    el.style.setProperty('--c', p.br.color);
+    el.innerHTML = `<div class="in"><div class="ini">${esc(p.initials)}</div><div><div class="nm">${esc(p.name)}</div><div class="yr">${esc(years(p))}</div></div></div>`;
+    const label = new CSS2DObject(el); label.position.copy(mesh.position); label.center.set(0,.5); world.add(label);
+    const n = {p, mesh, halo, label, el}; p.node = n; nodes.push(n);
+  }
+
+  for (const f of F.values()){
+    const par = [f.husb,f.wife].filter(Boolean).map(id=>P.get(id));
+    if (!par.length) continue;
+    const pv = par.map(p=>new THREE.Vector3(p.x,p.y,p.z));
+    if (par.length===2) addLine([...pv[0].toArray(), ...pv[1].toArray()], 'spouse', {a:par[0].id, b:par[1].id});
+    if (!f.chil.length) continue;
+    const ch = f.chil.map(id=>P.get(id));
+    const pY = Math.min(...pv.map(v=>v.y)), cY = Math.max(...ch.map(c=>c.y));
+    const J = new THREE.Vector3(avg(pv.map(v=>v.x)), pY - Math.max(3,(pY-cY)*.38), avg(pv.map(v=>v.z)));
+    par.forEach((p,i)=> addLine(curve(pv[i], J, 14), 'up', {parent:p.id, fam:f.id}));
+    ch.forEach(c => addLine(curve(J, new THREE.Vector3(c.x,c.y,c.z)), 'down', {child:c.id, fam:f.id}));
+  }
+
+  // Zeitzylinder: Wand, Meridiane, Jahresringe, Achse auf der Wand, Zeitstrom nach unten
+  const R = Math.max(30, ...nodes.map(n=>Math.hypot(n.p.x,n.p.z))) + 12;
+  const a0 = Math.floor(Y0/10)*10, a1 = Math.ceil(Y1/10)*10;
+  const yTop = yOf(a0-10), yBot = yOf(a1+8), H = yTop - yBot, yMid = (yTop+yBot)/2;
+  const lineMat = (color, opacity, cut=true) => { const m = new THREE.LineBasicMaterial({color, transparent:true, opacity, depthWrite:false}); return cut ? cutaway(m) : m; };
+  axisPivot = new THREE.Group(); axisGroup.add(axisPivot);
+  const glass = new THREE.Mesh(new THREE.CylinderGeometry(R, R, H, 96, 1, true),
+    new THREE.MeshBasicMaterial({color:'#17356a', transparent:true, opacity:.10, side:THREE.BackSide, depthWrite:false}));
+  glass.position.y = yMid; axisGroup.add(glass);
+  for (let i=0;i<36;i++){
+    const t = i/36*Math.PI*2, x = Math.cos(t)*R, z = Math.sin(t)*R;
+    axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,yTop,z), new THREE.Vector3(x,yBot,z)]), lineMat('#2a5296', i%9===0 ? .35 : .14)));
+  }
+  const ring = (y, color, op, r=R) => axisGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(
+    new THREE.EllipseCurve(0,0,r,r).getPoints(160).map(v=>new THREE.Vector3(v.x,y,v.y))), lineMat(color, op)));
+  ring(yTop, '#5fd4ff', .7); ring(yBot, '#5fd4ff', .7); ring(yTop, '#5fd4ff', .25, R+3); ring(yBot, '#5fd4ff', .25, R+3);
+  const ax = -R;
+  axisPivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax,yTop,0), new THREE.Vector3(ax,yBot,0)]), lineMat('#5f9cf0', .9, false)));
+  for (let y=a0; y<=a1; y+=10){
+    const major = y%50===0;
+    ring(yOf(y), major ? '#3f74c4' : '#1f3d70', major ? .55 : .22);
+    const w = major ? 3 : 1.4;
+    axisPivot.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(ax-w,yOf(y),0), new THREE.Vector3(ax+w,yOf(y),0)]), lineMat(major?'#9cc4ff':'#4a6ea8', 1, false)));
+    if (major || (a1-a0)<=150){
+      const el=document.createElement('div'); el.className='axis'+(major?' major':''); el.textContent=y;
+      const o=new CSS2DObject(el); o.position.set(ax-4,yOf(y),0); o.center.set(0,.5); axisPivot.add(o);
+    }
+  }
+  for (const [txt,y] of [[t('older'),yTop],[t('younger'),yBot]]){
+    const el=document.createElement('div'); el.className='axis cap'; el.textContent=txt;
+    const o=new CSS2DObject(el); o.userData.top = y===yTop; o.position.set(ax-4,y,0); o.center.set(0,.5); axisPivot.add(o);
+  }
+  const grid = new THREE.PolarGridHelper(R, 18, 8, 96, '#1c3766', '#13284d');
+  grid.position.y = yBot; grid.material.transparent = true; grid.material.opacity = .45; axisGroup.add(grid);
+  {
+    const n = 1400, pos = new Float32Array(n*3), r = rng(11);
+    for (let i=0;i<n;i++){ const t=r()*Math.PI*2, rr=R*(.97+r()*.08); pos.set([Math.cos(t)*rr, yBot + r()*H, Math.sin(t)*rr], i*3); }
+    const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    const pts = new THREE.Points(g, cutaway(new THREE.PointsMaterial({color:'#7fc8ff', size:1.7, sizeAttenuation:false, transparent:true, opacity:.6, depthWrite:false})));
+    axisGroup.add(pts); flow = {g, pos, n, yTop, yBot, H, mat: pts.material};
+  }
+  axisGroup.visible = $('#tAxis').checked;
+  bounds = {R, top:yTop, bottom:yBot};
+}
+let bounds = {R:60, top:0, bottom:-200};
+/* Ausschnitt: Von außen betrachtet verschwindet die dem Betrachter zugewandte Zylinderhälfte */
+const wallU = {uCam:{value:new THREE.Vector2(1,0)}, uOut:{value:1}};
+function cutaway(mat){
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uCam = wallU.uCam; sh.uniforms.uOut = wallU.uOut;
+    sh.vertexShader = 'varying vec2 vWxz;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n  vWxz = (modelMatrix * vec4(position, 1.0)).xz;');
+    sh.fragmentShader = 'uniform vec2 uCam; uniform float uOut; varying vec2 vWxz;\n' + sh.fragmentShader.replace('#include <clipping_planes_fragment>',
+      '#include <clipping_planes_fragment>\n  if (uOut > 0.5 && dot(normalize(vWxz), uCam) > 0.0) discard;');
+  };
+  return mat;
+}
+let axisPivot = null;
+
+function years(p){
+  const b = Math.floor(p.year), dd = p.death?.date, dy = dd && (dd.y ?? dd.a?.y), d = dd && !(dd.q==='BEF' && dy>=2020) ? (dd.q==='BEF'?t('before'):'') + dy : null;
+  if (p.est==='unknown') return d ? `† ${d}` : t('noData');
+  return d ? `${b} – ${d}` : (p.death ? `${b} – †` : `* ${b}`);
+}
+
+/* ================= Auswahl & Strang ================= */
+let sel = null, mode = 'alle', strand = null;
+function strandOf(id){
+  const anc = new Set(), desc = new Set(), partner = new Set();
+  const up = p => parentsOf(p).forEach(q => { if(!anc.has(q)){ anc.add(q); up(P.get(q)); } });
+  const down = p => childrenOf(p).forEach(c => { if(!desc.has(c)){ desc.add(c); down(P.get(c)); } });
+  const p = P.get(id); up(p); down(p);
+  for (const x of [id, ...desc]) spousesOf(P.get(x)).forEach(s => { if (s!==id && !anc.has(s) && !desc.has(s)) partner.add(s); });
+  return {id, anc, desc, partner};
+}
+function stateOf(pid){
+  if (!strand) return 'none';
+  if (pid===strand.id) return 'sel';
+  if (strand.anc.has(pid)) return 'anc';
+  if (strand.desc.has(pid)) return 'desc';
+  if (strand.partner.has(pid)) return 'partner';
+  return 'dim';
+}
+let lineRoot = null;
+function visibleP(p){
+  if (!p.br.on) return false;
+  if (mode==='strang' && strand) return stateOf(p.id)!=='dim';
+  if (mode==='linie'){ lineRoot ??= strandOf(ROOT_ID); const s=lineRoot; return p.id===s.id || s.anc.has(p.id) || s.desc.has(p.id) || s.partner.has(p.id); }
+  return true;
+}
+function applyState(){
+  for (const n of nodes){
+    const st = stateOf(n.p.id), vis = visibleP(n.p);
+    n.vis = vis; n.st = st;
+    n.el.className = 'card' + (n.compact?' compact':'') + (n===hovered?' hover':'') + (n.p.est?' est':'') + (st!=='none'&&st!=='dim'?' '+st:'') + (st==='dim'?' dim':'') + (!vis?' gone':'');
+    n.label.visible = $('#tNames').checked || st==='sel';
+    const o = !vis ? 0 : st==='dim' ? .35 : 1;
+    n.mesh.material.opacity = o; n.halo.material.opacity = o*(st==='sel'?1:.7);
+    n.mesh.visible = n.halo.visible = vis;
+    n.halo.scale.setScalar(st==='sel' ? 11 : st==='none'||st==='dim' ? 5 : 7.5);
+    n.mesh.material.color.set(st==='anc' ? '#ffbf5e' : st==='desc' ? '#5fd4ff' : st==='sel' ? '#ffffff' : n.p.br.color);
+  }
+  const S = strand, inA = id => S && (S.anc.has(id)), inD = id => S && (S.desc.has(id) || id===S.id);
+  for (const l of edges){
+    const u = l.userData; let m;
+    if (u.kind==='spouse'){
+      const va = visibleP(P.get(u.a)), vb = visibleP(P.get(u.b));
+      l.visible = va && vb;
+      m = !S ? MAT.sbase : (stateOf(u.a)!=='dim' && stateOf(u.b)!=='dim') ? MAT.spouse : MAT.dim;
+    } else {
+      const f = F.get(u.fam), par=[f.husb,f.wife].filter(Boolean);
+      if (u.kind==='up'){
+        l.visible = visibleP(P.get(u.parent)) && f.chil.some(c=>visibleP(P.get(c)));
+        m = !S ? MAT.base
+          : inA(u.parent) && f.chil.some(c=>inA(c)||c===S.id) ? MAT.anc
+          : inD(u.parent) && f.chil.some(c=>S.desc.has(c)) ? MAT.desc : MAT.dim;
+      } else {
+        l.visible = visibleP(P.get(u.child)) && par.some(x=>visibleP(P.get(x)));
+        m = !S ? MAT.base
+          : (inA(u.child)||u.child===S.id) && par.some(x=>inA(x)) ? MAT.anc
+          : S.desc.has(u.child) && par.some(x=>inD(x)) ? MAT.desc : MAT.dim;
+      }
+    }
+    l.material = m; l.renderOrder = (m===MAT.anc||m===MAT.desc) ? 2 : 1;
+  }
+  edgeGroup.visible = $('#tEdges').checked;
+  document.body.classList.toggle('noyr', !$('#tYears').checked);
+  renderBranches(); renderHits();
+}
+function select(id, fly=true){
+  sel = id; strand = id ? strandOf(id) : null;
+  applyState(); renderDetail();
+  if (id && fly) focusOn(P.get(id));
+  if (id) store.set('a3d.sel', id);
+}
+
+/* ================= Kamera ================= */
+let tween = null;
+function flyTo(target, pos, ms=1100){
+  const fromT = controls.target.clone(), fromP = camera.position.clone(), t0 = performance.now();
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches) ms = 1;
+  tween = now => {
+    const k = Math.min(1,(now-t0)/ms), e = k<.5 ? 4*k*k*k : 1-Math.pow(-2*k+2,3)/2;
+    controls.target.lerpVectors(fromT, target, e); camera.position.lerpVectors(fromP, pos, e);
+    if (k>=1) tween = null;
+  };
+}
+function home(){
+  const midY = (bounds.top+bounds.bottom)/2, h = bounds.top-bounds.bottom;
+  const dist = Math.max(h*1.6, bounds.R*3.4);
+  flyTo(new THREE.Vector3(0,midY,0), new THREE.Vector3(dist*.6, midY+h*.06, dist*.8));
+}
+function focusOn(p){
+  const t = new THREE.Vector3(p.x,p.y,p.z);
+  const dir = camera.position.clone().sub(controls.target).normalize();
+  flyTo(t, t.clone().add(dir.multiplyScalar(95)));
+}
+
+/* ================= Panels ================= */
+const hex = p => p.br.color;
+function chip(id, extra=''){
+  const p = P.get(id);
+  return `<button class="chip" data-id="${esc(id)}"><span class="mini" style="color:${hex(p)}">${esc(p.initials)}</span><span class="t"><b>${esc(p.name)}</b><small>${esc(years(p))}${extra}</small></span></button>`;
+}
+let miniInfo = store.get('a3d.mini') === '1';
+function renderDetail(){
+  const box = $('#detail'), right = $('#right');
+  if (!sel){
+    right.classList.add('idle'); right.classList.remove('mini');
+    box.innerHTML = `<div class="sec"><h2>${t('person')}</h2><p class="empty">${t('emptyHelp')}</p></div>
+      <div class="sec"><h2>${t('heightHelpH')}</h2><p class="empty">${t('heightHelp')}</p></div>`;
+    return;
+  }
+  right.classList.remove('idle'); right.classList.toggle('mini', miniInfo);
+  const p = P.get(sel), s = strand;
+  const dl = [], HEIGHT_KEY = t('height');
+  const b = p.birth, d = p.death;
+  dl.push([t('born'), b?.date ? fmtDate(b.date) + (b.tag!=='BIRT'?t('baptism'):'') : '–']);
+  if (b?.place) dl.push([t('birthPlace'), b.place]);
+  dl.push([t('died'), d ? (d.date && !(d.date.q==='BEF' && d.date.y>=2020) ? fmtDate(d.date) : t('diedUnknown')) + (d.tag==='BURI'?t('burial'):'') : '–']);
+  if (d?.place) dl.push([t('deathPlace'), d.place]);
+  if (p.occu.length) dl.push([t('occupation'), p.occu.join(', ')]);
+  dl.push([HEIGHT_KEY, `${Math.floor(p.year)}` + (p.est ? ` <span class="badge">${esc(t('est_'+p.est))}</span>` : '') + `<br><span style="color:var(--mute);font-size:12px">${esc(whyText(p))}</span>`]);
+  const fams = p.fams.map(fid => { const f=F.get(fid), sp = f.husb===p.id ? f.wife : f.husb;
+    return {sp, marr:f.marr, chil:f.chil}; });
+  box.innerHTML = `
+    <div class="head" style="margin:-14px -14px 0;">
+      <div class="avatar" style="color:${hex(p)}">${esc(p.initials)}</div>
+      <div style="min-width:0"><h3>${esc(p.name)}</h3>
+        <div class="sub">${p.marn ? t('nee')+' '+esc(p.sur)+'<br>' : ''}${esc(years(p))}</div></div>
+      <div class="hbtns"><button class="btn icon" id="mini" aria-expanded="${!miniInfo}" aria-label="${miniInfo ? t('expand') : t('collapse')}" title="${miniInfo ? t('expandT') : t('collapseT')}">${miniInfo ? '▴' : '▾'}</button><button class="btn icon" id="close" aria-label="${t('clear')}">✕</button></div>
+    </div>
+    <div class="acts"><button class="btn" id="focus">${t('focus')}</button><button class="btn" id="asLine">${t('onlyLine')}</button>${downloads ? `<button class="btn" id="exportBtn" title="${t('exportTip')}">${t('exportBtn')}</button>` : ''}</div>
+    <div class="counts"><div class="count a"><b>${s.anc.size}</b><span>${t('ancestors')}</span></div><div class="count d"><b>${s.desc.size}</b><span>${t('descendants')}</span></div></div>
+    <div class="sec"><h2>${t('basics')}</h2><dl class="kv">${dl.map(([k,v])=>`<dt>${k}</dt><dd>${k===HEIGHT_KEY?v:esc(v)}</dd>`).join('')}</dl></div>
+    <div class="sec"><h2>${t('parents')}</h2><div class="chips">${parentsOf(p).map(id=>chip(id)).join('') || `<p class="empty">${t('notRecorded')}</p>`}</div></div>
+    ${fams.map(f => `<div class="sec"><h2>${f.sp ? t('partner') : t('family')}${f.marr?.date ? ' · ' + t('married') + ' ' + esc(fmtDate(f.marr.date)) : ''}</h2><div class="chips">
+      ${f.sp ? chip(f.sp) : ''}${f.chil.length ? `<h2 style="margin:8px 0 2px">${t('children')} (${f.chil.length})</h2>` + f.chil.map(c=>chip(c)).join('') : ''}</div></div>`).join('')}
+    <p class="empty" style="font-size:12px">${t('record')} ${esc(p.id)}</p>`;
+  $('#close').onclick = () => select(null);
+  $('#mini').onclick = () => { miniInfo = !miniInfo; store.set('a3d.mini', miniInfo ? '1' : ''); renderDetail(); };
+  $('#focus').onclick = () => focusOn(p);
+  $('#asLine').onclick = () => setMode('strang');
+  if ($('#exportBtn')) $('#exportBtn').onclick = () => exportImage(p);
+  box.querySelectorAll('.chip').forEach(c => c.onclick = () => select(c.dataset.id));
+}
+function renderBranches(){
+  $('#branches').innerHTML = branches.map((b,i)=>`<button class="row${b.on?'':' off'}" data-i="${i}" aria-pressed="${b.on}"><span class="dot" style="color:${b.color};background:${b.color}"></span><span class="nm">${esc(b.label ?? t('otherNames'))}</span><span class="ct">${b.n}</span></button>`).join('');
+  $('#branches').querySelectorAll('.row').forEach(r => r.onclick = () => { const b=branches[+r.dataset.i]; b.on=!b.on; applyState(); });
+}
+function renderHits(){
+  const q = $('#q').value.trim().toLowerCase();
+  if (!q){ $('#hits').innerHTML=''; return; }
+  const list = [...P.values()].filter(p => (p.name+' '+p.sur+' '+Math.floor(p.year)).toLowerCase().includes(q)).sort((a,b)=>a.year-b.year).slice(0,40);
+  $('#hits').innerHTML = list.map(p=>`<button class="row${p.id===sel?' on':''}" data-id="${esc(p.id)}"><span class="dot" style="color:${hex(p)};background:${hex(p)}"></span><span class="nm">${esc(p.name)}</span><span class="ct">${p.est?'≈':''}${Math.floor(p.year)}</span></button>`).join('') || `<p class="empty">${t('noHit')}</p>`;
+  $('#hits').querySelectorAll('.row').forEach(r => r.onclick = () => select(r.dataset.id));
+}
+function setMode(m){
+  mode = m;
+  document.querySelectorAll('[data-mode]').forEach(b => b.classList.toggle('on', b.dataset.mode===m));
+  if (m==='linie' && !sel) select(ROOT_ID); else applyState();
+}
+
+/* ================= Interaktion ================= */
+/* Karten lassen alle Gesten zum 3D-Raum durch (pointer-events:none). Ein kurzes Antippen
+   ohne Bewegung und mit nur einem Finger wählt die Karte oder den Punkt darunter. */
+const ray = new THREE.Raycaster(), ptr = new THREE.Vector2();
+const active = new Map(); let tap = null;
+canvas.addEventListener('pointerdown', e => {
+  active.set(e.pointerId, true);
+  tap = active.size===1 ? {x:e.clientX, y:e.clientY, t:performance.now(), id:e.pointerId} : null;
+});
+canvas.addEventListener('pointermove', e => {
+  if (tap && tap.id===e.pointerId && Math.hypot(e.clientX-tap.x, e.clientY-tap.y) > (e.pointerType==='mouse' ? 5 : 10)) tap = null;
+  if (e.pointerType==='mouse' && !e.buttons) hoverAt(e.clientX, e.clientY);
+});
+const lift = e => { active.delete(e.pointerId); };
+canvas.addEventListener('pointercancel', e => { lift(e); tap = null; });
+canvas.addEventListener('pointerleave', () => hoverAt(-1,-1));
+canvas.addEventListener('pointerup', e => {
+  lift(e);
+  const t = tap; tap = null;
+  if (!t || t.id!==e.pointerId || performance.now()-t.t > 600) return;
+  const n = pickAt(e.clientX, e.clientY, e.pointerType==='mouse' ? 14 : 26);
+  if (n) select(n.p.id);
+});
+function cardAt(x, y){
+  let best = null, bz = -Infinity;
+  for (const n of nodes){
+    if (!n.vis || !n.label.visible || n.el.style.display==='none') continue;
+    const r = n.el.firstChild.getBoundingClientRect();
+    if (x<r.left || x>r.right || y<r.top || y>r.bottom) continue;
+    const z = +n.el.style.zIndex || 0;
+    if (z > bz){ bz = z; best = n; }
+  }
+  return best;
+}
+function pickAt(x, y, radius){
+  const c = cardAt(x, y); if (c) return c;
+  const r = canvas.getBoundingClientRect();
+  ptr.set((x-r.left)/r.width*2-1, -(y-r.top)/r.height*2+1);
+  ray.setFromCamera(ptr, camera);
+  const hit = ray.intersectObjects(nodes.filter(n=>n.vis).map(n=>n.mesh))[0];
+  if (hit) return hit.object.userData.p.node;
+  let best = null, bd = radius;   // Fingertipp neben einen kleinen Punkt
+  for (const n of nodes){
+    if (!n.vis) continue;
+    const v = tmp.copy(n.mesh.position).project(camera);
+    if (v.z > 1) continue;
+    const d = Math.hypot(r.left + (v.x+1)/2*r.width - x, r.top + (1-v.y)/2*r.height - y);
+    if (d < bd){ bd = d; best = n; }
+  }
+  return best;
+}
+let hovered = null, hoverQ = null;
+function hoverAt(x, y){
+  hoverQ = [x, y];
+  if (hoverAt.raf) return;
+  hoverAt.raf = requestAnimationFrame(() => {
+    hoverAt.raf = 0;
+    const n = hoverQ[0] < 0 ? null : cardAt(hoverQ[0], hoverQ[1]);
+    if (n === hovered) return;
+    hovered?.el.classList.remove('hover'); hovered = n;
+    n?.el.classList.add('hover');
+    canvas.style.cursor = n ? 'pointer' : '';
+  });
+}
+addEventListener('keydown', e => { if (e.key==='Escape' && document.activeElement?.id!=='q') select(null); });
+$('#q').addEventListener('input', renderHits);
+$('#q').addEventListener('keydown', e => { if (e.key==='Enter'){ const f=$('#hits .row'); if (f) select(f.dataset.id); } });
+document.querySelectorAll('[data-mode]').forEach(b => b.onclick = () => setMode(b.dataset.mode));
+['tNames','tYears','tEdges'].forEach(id => $('#'+id).addEventListener('change', applyState));
+$('#tAxis').addEventListener('change', e => axisGroup.visible = e.target.checked);
+$('#tGlow').addEventListener('change', e => bloom.enabled = e.target.checked);
+$('#homeBtn').onclick = home;
+$('#spinBtn').onclick = () => { controls.autoRotate = !controls.autoRotate; $('#spinBtn').classList.toggle('on', controls.autoRotate); };
+const zoom = k => { const v = camera.position.clone().sub(controls.target).multiplyScalar(k); camera.position.copy(controls.target).add(v); };
+$('#zin').onclick = () => zoom(.75); $('#zout').onclick = () => zoom(1.33);
+$('#menuBtn').onclick = () => $('#left').classList.toggle('open');
+$('#file').addEventListener('change', async e => { const f=e.target.files[0]; if (f) start(decodeGed(await f.arrayBuffer()), f.name); e.target.value=''; });
+stage.addEventListener('dragover', e => e.preventDefault());
+stage.addEventListener('drop', async e => { e.preventDefault(); const f=e.dataTransfer.files[0]; if (f) start(decodeGed(await f.arrayBuffer()), f.name); });
+
+/* ================= Bild-Export ================= */
+let downloads = null;
+if (window.claude?.use) window.claude.use('downloads').then(d => { downloads = d; if (d && sel) renderDetail(); }).catch(() => {});
+else downloads = {   // eigenständig (z. B. in Streamlit): normaler Browser-Download
+  save: async ({filename, data}) => {
+    const a = document.createElement('a'); a.href = URL.createObjectURL(data); a.download = filename;
+    document.body.append(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 4000);
+    return {status:'saved'};
+  }
+};
+
+function rrect(g, x, y, w, h, r){ g.beginPath(); g.roundRect ? g.roundRect(x, y, w, h, r) : g.rect(x, y, w, h); }
+function drawCard(g, n, sx, sy, S){
+  const st = n.st, c = n.p.br.color, compact = n.compact;
+  const nm = n.el.querySelector('.nm').textContent, yr = (n.p.est ? '≈ ' : '') + n.el.querySelector('.yr').textContent;
+  const showYr = $('#tYears').checked;
+  g.save(); g.globalAlpha = st==='dim' ? .32 : 1;
+  g.font = `500 ${12.5*S}px Barlow, "Segoe UI", sans-serif`; const wN = g.measureText(nm).width;
+  g.font = `400 ${10.5*S}px "IBM Plex Mono", monospace`; const wY = showYr ? g.measureText(yr).width : 0;
+  const pad = compact ? 3 : 4, ini = 24, h = (ini + pad*2)*S;
+  const w = compact ? h : (pad + ini + 7)*S + Math.max(wN, wY) + 9*S;
+  const x = sx - (pad + 1 + ini/2)*S, y = sy - h/2;
+  const border = st==='sel' ? '#5fd4ff' : st==='anc' ? '#a8782f' : st==='desc' ? '#2f7fa6' : st==='partner' ? '#9a4a69' : '#2a3c62';
+  const glow = st==='sel' ? '#5fd4ff' : st==='anc' ? '#ffbf5e' : st==='desc' ? '#5fd4ff' : c;
+  g.shadowColor = glow; g.shadowBlur = (st==='sel' ? 26 : 14)*S;
+  const grd = g.createLinearGradient(x, y, x+w, y+h);
+  grd.addColorStop(0, st==='sel' ? '#123058' : '#0f1b34'); grd.addColorStop(1, st==='sel' ? '#0a1a36' : '#0a1226');
+  rrect(g, x, y, w, h, 7*S); g.fillStyle = grd; g.fill();
+  g.shadowBlur = 0; g.lineWidth = (st==='sel' ? 2 : 1)*S; g.strokeStyle = border; g.stroke();
+  const ix = x + (pad+1)*S, iy = y + (pad+1)*S - S;
+  rrect(g, ix, iy, ini*S, ini*S, 5*S); g.fillStyle = '#00000066'; g.fill(); g.lineWidth = S; g.strokeStyle = c; g.stroke();
+  g.fillStyle = c; g.font = `600 ${10.5*S}px Oxanium, "Segoe UI", sans-serif`; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText(n.p.initials, ix + ini*S/2, iy + ini*S/2 + .5*S);
+  if (!compact){
+    g.textAlign = 'left'; const tx = ix + (ini+7)*S;
+    g.fillStyle = '#dce6f7'; g.font = `500 ${12.5*S}px Barlow, "Segoe UI", sans-serif`;
+    g.fillText(nm, tx, showYr ? y + h*.36 : y + h/2);
+    if (showYr){ g.fillStyle = '#7f8fac'; g.font = `400 ${10.5*S}px "IBM Plex Mono", monospace`; g.fillText(yr, tx, y + h*.72); }
+  }
+  g.restore();
+}
+async function exportImage(p){
+  const btn = $('#exportBtn'); if (!btn || !downloads) return;
+  btn.disabled = true; btn.textContent = t('rendering');
+  await new Promise(r => setTimeout(r, 30));
+  const w = stage.clientWidth, h = stage.clientHeight, k = 4000 / Math.max(w, h);
+  const W = Math.round(w*k), H = Math.round(h*k), pr = renderer.getPixelRatio();
+  const mats = Object.values(MAT), lw = mats.map(m => m.linewidth), ps = flow?.mat.size;
+  let out;
+  try {
+    renderer.setPixelRatio(1); composer.setPixelRatio(1);
+    renderer.setSize(W, H, false); composer.setSize(W, H);
+    mats.forEach(m => { m.resolution.set(W, H); m.linewidth *= k; });
+    if (flow) flow.mat.size = ps * k;
+    composer.render();
+    out = document.createElement('canvas'); out.width = W; out.height = H;
+    const g = out.getContext('2d');
+    g.drawImage(renderer.domElement, 0, 0);
+    // Zeitachse
+    if (axisGroup.visible && axisPivot){
+      axisPivot.updateMatrixWorld(true);
+      for (const o of axisPivot.children){
+        if (!o.isCSS2DObject) continue;
+        const v = o.getWorldPosition(new THREE.Vector3()).project(camera); if (v.z > 1) continue;
+        const cl = o.element.className, cap = cl.includes('cap'), major = cl.includes('major');
+        g.font = cap ? `500 ${10.5*k}px Oxanium, sans-serif` : `500 ${(major?13:11)*k}px "IBM Plex Mono", monospace`;
+        g.fillStyle = cap ? '#7f8fac' : major ? '#a9c4f0' : '#6f87b5'; g.textAlign = 'right'; g.textBaseline = 'middle';
+        g.fillText(cap ? o.element.textContent.toUpperCase() : o.element.textContent, (v.x+1)/2*W - 10*k, (1-v.y)/2*H);
+      }
+    }
+    // Karten von hinten nach vorn
+    const list = nodes.filter(n => n.vis && n.label.visible).map(n => ({n, v: n.mesh.position.clone().project(camera)}))
+      .filter(o => o.v.z < 1 && Math.abs(o.v.x) < 1.2 && Math.abs(o.v.y) < 1.2).sort((a,b) => b.v.z - a.v.z);
+    for (const {n, v} of list) drawCard(g, n, (v.x+1)/2*W, (1-v.y)/2*H, (+n.el.firstChild.style.scale || 1) * k);
+    // Fußzeile
+    const s = strand, F1 = 22*k, pad = 28*k;
+    g.textAlign = 'left'; g.textBaseline = 'alphabetic';
+    g.fillStyle = '#dce6f7'; g.font = `600 ${F1}px Oxanium, sans-serif`;
+    g.fillText(`${p.name}${p.marn ? ' (' + t('nee') + ' ' + p.sur + ')' : ''} · ${years(p)}`, pad, H - pad - 26*k);
+    g.font = `400 ${13*k}px "IBM Plex Mono", monospace`; g.fillStyle = '#7f8fac';
+    g.fillText(t('footer', {a:s.anc.size, d:s.desc.size, title:TITLE, date:new Date().toLocaleDateString(t('locale'))}), pad, H - pad);
+  } finally {
+    renderer.setPixelRatio(pr); composer.setPixelRatio(pr);
+    mats.forEach((m, i) => m.linewidth = lw[i]);
+    if (flow) flow.mat.size = ps;
+    resize();
+  }
+  const blob = await new Promise(r => out.toBlob(r, 'image/png'));
+  const file = t('filePrefix') + '_' + p.name.replace(/[^\p{L}\p{N}]+/gu, '_') + '.png';
+  let msg = t('saved');
+  try { await downloads.save({filename: file, data: blob}); }
+  catch(e){ msg = e?.code==='declined' ? t('declined') : e?.code==='rate_limited' ? t('wait') : t('saveFail'); }
+  if (btn.isConnected){ btn.textContent = msg; setTimeout(() => { if (btn.isConnected){ btn.textContent = t('exportBtn'); btn.disabled = false; } }, 2200); }
+}
+
+function resize(){
+  const w = stage.clientWidth, h = stage.clientHeight;
+  renderer.setSize(w,h,false); composer.setSize(w,h); labels.setSize(w,h);
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+  for (const m of Object.values(MAT)) m.resolution.set(w,h);
+}
+new ResizeObserver(resize).observe(stage);
+
+const tmp = new THREE.Vector3();
+function frame(now){
+  requestAnimationFrame(frame);
+  if (tween) tween(now);
+  controls.update();
+  for (const n of nodes){
+    if (!n.label.visible) continue;
+    const d = tmp.copy(n.mesh.position).distanceTo(camera.position);
+    let s = Math.min(1.05, Math.max(.3, 120/d));
+    if (n.st==='sel') s = Math.max(s, .95); else if (n.st==='anc'||n.st==='desc') s = Math.max(s,.62);
+    // Unter ca. 7 px Schrift wird der Name unlesbar: dann nur das Kürzel zeigen (mit etwas Hysterese)
+    const small = n.compact ? s < .62 : s < .54;
+    if (small !== n.compact){ n.compact = small; n.el.classList.toggle('compact', small); }
+    if (small) s = Math.min(.85, Math.max(.5, s*1.5));
+    n.el.firstChild.style.scale = s.toFixed(3);
+  }
+  if (flow && axisGroup.visible && !reduceMotion){
+    const dt = Math.min(.05, (now - (frame.last||now))/1000), p = flow.pos;
+    for (let i=1;i<p.length;i+=3){ p[i] -= dt*6; if (p[i] < flow.yBot) p[i] += flow.H; }
+    flow.g.attributes.position.needsUpdate = true;
+  }
+  frame.last = now;
+  { // Zylinder-Ausschnitt und Zeitachse am linken hinteren Rand halten
+    const cx = camera.position.x, cz = camera.position.z, d = Math.hypot(cx, cz);
+    wallU.uCam.value.set(cx/(d||1), cz/(d||1)); wallU.uOut.value = d > bounds.R*1.02 ? 1 : 0;
+    if (axisPivot) axisPivot.rotation.y = Math.PI - (Math.atan2(cz, cx) + 2.2);
+  }
+  const pulse = 1 + Math.sin(now/380)*.12;
+  if (sel && P.get(sel)?.node) P.get(sel).node.halo.scale.setScalar(11*pulse);
+  composer.render(); labels.render(scene, camera);
+}
+
+/* ================= Start ================= */
+async function start(text, name){
+  try {
+    buildModel(text);
+    if (!P.size) throw new Error(t('noPeople'));
+  } catch(err){
+    $('#loader').hidden = false;
+    $('#loadMsg').textContent = t('badFile', {name, err: err.message});
+    return;
+  }
+  buildBranches(); lineRoot = null;
+  ROOT_ID = CFG.home && P.has(CFG.home) ? CFG.home : P.keys().next().value;
+  $('#rootBtn').textContent = P.get(ROOT_ID).given.split(/\s+/)[0].slice(0,12);
+  $('#rootBtn').title = t('onlyLineOf', {name: P.get(ROOT_ID).name});
+  sel = null; strand = null;
+  const ys = [...P.values()].map(p=>p.year);
+  Y0 = Math.min(...ys); Y1 = Math.max(...ys);
+  $('#loader').hidden = false;
+  $('#loadMsg').textContent = t('arranging', {n:P.size, name});
+  await new Promise(r => setTimeout(r, 40));
+  layout(); buildScene(); resize();
+  loadedName = name; renderMeta();
+  $('#loader').hidden = true;
+  const want = startWish || store.get('a3d.sel'); startWish = null;
+  select(P.has(want) ? want : (P.has(ROOT_ID) ? ROOT_ID : null), false);
+  const d = Math.max((bounds.top-bounds.bottom)*1.25, bounds.R*2.6), midY=(bounds.top+bounds.bottom)/2;
+  controls.target.set(0,midY,0); camera.position.set(d*1.1, midY+d*.4, d*1.3);
+  home();
+}
+requestAnimationFrame(frame);
+/* Eingebettet (z. B. Streamlit-App): window.GED_EMBED = {text, name, title, start} statt stammbaum.ged */
+/* Konfiguration: window.GED_DEFAULTS (fest in der Seite) und window.GED_EMBED (z. B. Streamlit):
+   {text, name, title, start, home, src, lang}. Ohne text lädt die Seite CFG.src, falls gesetzt. */
+const TITLE = CFG.title;
+let startWish = CFG.start || null, loadedName = '';
+$('#brandTitle').textContent = TITLE; document.title = TITLE;
+function renderMeta(){
+  if (!P.size) return;
+  const est = [...P.values()].filter(p=>p.est && p.est!=='approx').length;
+  $('#meta').innerHTML = t('meta', {p:P.size, f:F.size, y0:Math.floor(Y0), y1:Math.floor(Y1), est, name:esc(loadedName)});
+}
+function setLang(l){
+  LANG = l; store.set('a3d.lang', l); applyStatic();
+  if (!P.size) return;
+  for (const n of nodes) n.el.querySelector('.yr').textContent = years(n.p);
+  buildBranches.relabel?.(); renderMeta(); applyState(); renderDetail();
+  $('#rootBtn').title = t('onlyLineOf', {name: P.get(ROOT_ID).name});
+  // Achsenbeschriftung neu setzen
+  axisPivot?.children.forEach(o => { if (o.isCSS2DObject && o.element.classList.contains('cap')) o.element.textContent = o.userData.top ? t('older') : t('younger'); });
+}
+$('#langBtn').onclick = () => setLang(LANG === 'de' ? 'en' : 'de');
+applyStatic();
+(async () => {
+  if (CFG.text){ start(CFG.text, CFG.name || 'GED'); return; }
+  if (!CFG.src){ $('#loadMsg').textContent = t('noFile'); return; }
+  $('#loadMsg').textContent = t('reading', {name: CFG.src});
+  try {
+    const r = await fetch(CFG.src, {cache:'no-store'});
+    if (!r.ok) throw 0;
+    start(decodeGed(await r.arrayBuffer()), CFG.src.split('/').pop());
+  } catch(e){
+    $('#loadMsg').textContent = t('noFile');
+  }
+})();
+</script>

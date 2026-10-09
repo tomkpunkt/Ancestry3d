@@ -1,0 +1,5 @@
+# Keep real family data out of the repository: only the fictional example is tracked.
+*.ged
+!data/example-family.ged
+__pycache__/
+.venv/
